@@ -12,13 +12,15 @@ import (
 	igerr "github.com/motovax/motoig/errors"
 	"github.com/motovax/motoig/extractors"
 	"github.com/motovax/motoig/models"
+	"github.com/motovax/motoig/realtime"
 	"github.com/motovax/motoig/state"
 )
 
 // Client is the main entry point matching instagrapi.Client.
 type Client struct {
-	state *state.State
-	log   *slog.Logger
+	state    *state.State
+	log      *slog.Logger
+	realtime *realtime.RealtimeClient
 
 	username string
 	password string
@@ -823,4 +825,104 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// RealtimeConnect connects to Instagram's MQTToT server for real-time DMs.
+func (c *Client) RealtimeConnect() error {
+	userID := c.state.UserIDInt()
+	if userID == 0 {
+		return igerr.New("RealtimeConnect", "not logged in")
+	}
+
+	deviceID := c.state.UUIDs["phone_id"]
+	if len(deviceID) > 20 {
+		deviceID = deviceID[:20]
+	}
+
+	c.realtime = realtime.NewRealtimeClient(realtime.RealtimeConfig{
+		SessionID:    c.state.SessionID(),
+		UserID:       userID,
+		DeviceID:     deviceID,
+		UserAgent:    c.state.UserAgent,
+		AppVersion:   fmt.Sprintf("%v", c.state.DeviceSettings["app_version"]),
+		Capabilities: "3brTv10=",
+		Locale:       c.state.Locale,
+	})
+
+	return c.realtime.Connect()
+}
+
+// RealtimeDisconnect disconnects from the MQTToT server.
+func (c *Client) RealtimeDisconnect() error {
+	if c.realtime == nil {
+		return nil
+	}
+	err := c.realtime.Disconnect()
+	c.realtime = nil
+	return err
+}
+
+// RealtimeOn registers an event handler for real-time events.
+// Events: "message", "direct", "typing", "presence", "seen", "thread_update", "error"
+func (c *Client) RealtimeOn(event string, handler func(realtime.RealtimeEvent)) {
+	if c.realtime == nil {
+		c.realtime = c.newRealtimeClient()
+	}
+	c.realtime.On(event, handler)
+}
+
+func (c *Client) newRealtimeClient() *realtime.RealtimeClient {
+	userID := c.state.UserIDInt()
+	deviceID := c.state.UUIDs["phone_id"]
+	if len(deviceID) > 20 {
+		deviceID = deviceID[:20]
+	}
+	return realtime.NewRealtimeClient(realtime.RealtimeConfig{
+		SessionID:    c.state.SessionID(),
+		UserID:       userID,
+		DeviceID:     deviceID,
+		UserAgent:    c.state.UserAgent,
+		AppVersion:   fmt.Sprintf("%v", c.state.DeviceSettings["app_version"]),
+		Capabilities: "3brTv10=",
+		Locale:       c.state.Locale,
+	})
+}
+
+// RealtimeDirectSubscribe subscribes to real-time DM updates via IRIS.
+func (c *Client) RealtimeDirectSubscribe(ctx context.Context, amount int) error {
+	if c.realtime == nil || !c.realtime.IsConnected() {
+		return igerr.New("RealtimeDirectSubscribe", "not connected")
+	}
+
+	threads, err := c.DirectThreads(ctx, amount)
+	if err != nil {
+		return igerr.Wrap("RealtimeDirectSubscribe", "fetch threads", err)
+	}
+	_ = threads
+
+	lastResp := c.state.LastResponse
+	if lastResp == nil {
+		return igerr.New("RealtimeDirectSubscribe", "no last response to extract seq_id from")
+	}
+
+	var resp struct {
+		SeqID        int    `json:"seq_id"`
+		SnapshotAtMS int64  `json:"snapshot_at_ms"`
+	}
+	if err := json.Unmarshal(lastResp, &resp); err != nil {
+		return igerr.Wrap("RealtimeDirectSubscribe", "parse seq_id", err)
+	}
+	if resp.SeqID == 0 || resp.SnapshotAtMS == 0 {
+		return igerr.New("RealtimeDirectSubscribe", "seq_id or snapshot_at_ms missing from response")
+	}
+
+	return c.realtime.DirectSubscribe(amount, resp.SeqID, resp.SnapshotAtMS)
+}
+
+// RealtimeSendDirect sends a DM via the real-time MQTT connection.
+func (c *Client) RealtimeSendDirect(threadID, text, clientContext string) error {
+	if c.realtime == nil || !c.realtime.IsConnected() {
+		return igerr.New("RealtimeSendDirect", "not connected")
+	}
+	return c.realtime.SendDirectMessage(threadID, text, clientContext)
 }
