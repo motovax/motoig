@@ -244,7 +244,8 @@ func (s *State) BaseHeaders() http.Header {
 	h.Set("Priority", "u=3")
 	h.Set("User-Agent", s.UserAgent)
 	h.Set("Accept-Language", strings.Join(acceptLanguage, ", "))
-	h.Set("Accept-Encoding", "gzip, deflate")
+	// Do not set Accept-Encoding here — Go's http.Transport adds gzip and
+	// decompresses automatically; a manual header skips decompression.
 	h.Set("Host", "i.instagram.com")
 	h.Set("X-FB-HTTP-Engine", "Tigon/MNS/TCP")
 	h.Set("X-Tigon-Is-Retry", "False")
