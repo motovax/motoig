@@ -115,16 +115,9 @@ func (w *thriftWriter) writeStop() {
 }
 
 func writeThriftStruct(w *thriftWriter, data map[string]any, descriptors []ThriftField) {
-	byName := make(map[string]ThriftField, len(descriptors))
 	for _, d := range descriptors {
-		byName[d.Name] = d
-	}
-	for name, val := range data {
-		if val == nil {
-			continue
-		}
-		d, ok := byName[name]
-		if !ok {
+		val, ok := data[d.Name]
+		if !ok || val == nil {
 			continue
 		}
 		thriftType := d.Type & 0xFF
