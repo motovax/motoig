@@ -682,10 +682,15 @@ func (s *State) LoadSnapshot(snap map[string]any) {
 	s.EnsureLoggedInFromCookies()
 }
 
-// EnsureLoggedInFromCookies marks the session logged in when cookies contain a sessionid.
+// EnsureLoggedInFromCookies marks the session logged in when browser cookies are present.
 func (s *State) EnsureLoggedInFromCookies() {
+	cookies := s.CookieDict()
+	if uid := strings.TrimSpace(cookies["ds_user_id"]); uid != "" {
+		s.UserID = uid
+	}
 	if strings.TrimSpace(s.UserID) != "" {
 		s.LoggedIn = true
+		s.syncAuthorizationFromCookies(cookies)
 		return
 	}
 	userID := UserIDFromSessionID(s.SessionID())
@@ -702,6 +707,23 @@ func (s *State) EnsureLoggedInFromCookies() {
 	}
 	if _, ok := s.AuthorizationData["sessionid"]; !ok {
 		s.AuthorizationData["sessionid"] = s.SessionID()
+	}
+	s.syncAuthorizationFromCookies(cookies)
+}
+
+func (s *State) syncAuthorizationFromCookies(cookies map[string]string) {
+	if s.AuthorizationData == nil {
+		s.AuthorizationData = map[string]any{}
+	}
+	if uid := strings.TrimSpace(s.UserID); uid != "" {
+		s.AuthorizationData["ds_user_id"] = uid
+	}
+	sessionID := strings.TrimSpace(cookies["sessionid"])
+	if sessionID == "" {
+		sessionID = s.SessionID()
+	}
+	if sessionID != "" {
+		s.AuthorizationData["sessionid"] = sessionID
 	}
 	s.Authorization = s.BuildAuthorization()
 }

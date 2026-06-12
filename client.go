@@ -153,6 +153,35 @@ func (c *Client) SetSessionID(ctx context.Context, sessionID string) error {
 	return nil
 }
 
+// ImportBrowserCookies applies cookies exported from a browser profile (e.g. motosocial).
+func (c *Client) ImportBrowserCookies(ctx context.Context, cookies map[string]string) error {
+	if len(cookies) == 0 {
+		return igerr.New("ImportBrowserCookies", "no cookies provided")
+	}
+	ensureSessionJar(c)
+	for name, value := range cookies {
+		name = strings.TrimSpace(name)
+		value = strings.TrimSpace(value)
+		if name == "" || value == "" {
+			continue
+		}
+		c.state.SetCookie(name, value)
+	}
+	c.state.EnsureLoggedInFromCookies()
+	if c.state.UserID == "" {
+		return igerr.New("ImportBrowserCookies", "invalid sessionid: no user id")
+	}
+	c.state.LoggedIn = true
+
+	profile, err := c.UserInfoV1(ctx, c.state.UserID)
+	if err != nil {
+		c.log.Warn("failed to fetch user info, continuing anyway", "error", err)
+	} else {
+		c.state.Username = profile.Username
+	}
+	return nil
+}
+
 func (c *Client) privateRequest(ctx context.Context, endpoint string, data map[string]any) (map[string]any, error) {
 	c.state.RandomDelay()
 	c.state.ReqCounter++
