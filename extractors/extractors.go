@@ -4,6 +4,7 @@ package extractors
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/motovax/motoig/models"
@@ -480,7 +481,7 @@ func ExtractDirectMessage(data map[string]any) models.DirectMessage {
 	dm := models.DirectMessage{
 		ID:            getString(data, "item_id"),
 		ItemType:      getString(data, "item_type"),
-		Text:          getString(data, "text"),
+		Text:          getString(data, "text", "auxiliary_text"),
 		ClientContext: getString(data, "client_context"),
 	}
 
@@ -533,12 +534,21 @@ func ExtractDirectMessage(data map[string]any) models.DirectMessage {
 		dm.Clip = &m
 	}
 
+	preserveDirectRawXMA(data, &dm)
+
 	if xma := firstMediaXma(data, "xma_clip"); xma != nil {
 		dm.XMAShare = xma
 	}
 	if dm.XMAShare == nil {
 		if xma := firstMediaXma(data, "xma_media_share"); xma != nil {
 			dm.XMAShare = xma
+		}
+	}
+	if dm.XMAShare == nil {
+		if itemType := strings.TrimSpace(dm.ItemType); itemType != "" {
+			if xma := firstMediaXma(data, itemType); xma != nil {
+				dm.XMAShare = xma
+			}
 		}
 	}
 	if generic, ok := data["generic_xma"].([]any); ok {
@@ -604,18 +614,34 @@ func firstMediaXma(data map[string]any, key string) *models.MediaXma {
 	return nil
 }
 
+func preserveDirectRawXMA(data map[string]any, dm *models.DirectMessage) {
+	if dm == nil {
+		return
+	}
+	raw := make(map[string]any)
+	for _, key := range []string{"xma_clip", "xma_media_share", "xma_story_share", "xma_profile", "generic_xma", "xma_reel_mention"} {
+		if v, ok := data[key]; ok && v != nil {
+			raw[key] = v
+		}
+	}
+	if len(raw) > 0 {
+		dm.RawXMA = raw
+	}
+}
+
 func extractMediaXma(data map[string]any) *models.MediaXma {
 	targetURL := getString(data, "target_url")
 	if targetURL == "" {
 		return nil
 	}
+	title := getString(data, "title_text", "title", "quoted_title_text", "caption_body_text", "quoted_caption_body_text")
 	xma := &models.MediaXma{
 		VideoURL:           targetURL,
-		Title:              getString(data, "title_text", "title"),
+		Title:              title,
 		PreviewURL:         getString(data, "preview_url"),
 		PreviewURLMimeType: getString(data, "preview_url_mime_type"),
 		HeaderIconURL:      getString(data, "header_icon_url"),
-		HeaderTitleText:    getString(data, "header_title_text"),
+		HeaderTitleText:    getString(data, "header_title_text", "subtitle_text", "header_subtitle_text"),
 		PreviewMediaFbid:   getString(data, "preview_media_fbid"),
 	}
 	if w := getInt(data, "header_icon_width"); w > 0 {
