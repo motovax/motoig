@@ -669,6 +669,7 @@ func (s *State) LoadSnapshot(snap map[string]any) {
 		s.IgWWWClaim = claim
 	}
 	if authData, ok := snap["authorization_data"].(map[string]any); ok {
+		NormalizeAuthorizationData(authData)
 		s.AuthorizationData = authData
 		s.Authorization = s.BuildAuthorization()
 	}

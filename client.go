@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
+	"net/url"
+	"strings"
 	"time"
 
 	igerr "github.com/motovax/motoig/errors"
@@ -112,6 +114,9 @@ func (c *Client) Username() string { return c.state.Username }
 // Port of instagrapi session bootstrap via sessionid cookie.
 // Reference: https://github.com/subzeroid/instagrapi/blob/master/instagrapi/mixins/auth.py
 func (c *Client) SetSessionID(ctx context.Context, sessionID string) error {
+	if decoded, err := url.QueryUnescape(strings.TrimSpace(sessionID)); err == nil && decoded != "" {
+		sessionID = decoded
+	}
 	if len(sessionID) < 30 {
 		return igerr.New("SetSessionID", "invalid sessionid")
 	}
@@ -751,6 +756,7 @@ func (c *Client) LoadSettings(settings map[string]any) {
 		c.state.IgWWWClaim = claim
 	}
 	if authData, ok := settings["authorization_data"].(map[string]any); ok {
+		state.NormalizeAuthorizationData(authData)
 		c.state.AuthorizationData = authData
 		c.state.Authorization = c.state.BuildAuthorization()
 	}
