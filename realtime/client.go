@@ -70,6 +70,10 @@ func (c *RealtimeClient) On(event string, handler RealtimeHandler) {
 }
 
 func (c *RealtimeClient) Connect() error {
+	c.mu.Lock()
+	c.stopCh = make(chan struct{})
+	c.mu.Unlock()
+
 	if err := c.transport.Connect(); err != nil {
 		return err
 	}
@@ -101,13 +105,20 @@ func (c *RealtimeClient) Connect() error {
 
 func (c *RealtimeClient) Disconnect() error {
 	c.mu.Lock()
+	wasConnected := c.connected
 	c.connected = false
+	stopCh := c.stopCh
 	c.mu.Unlock()
 
-	close(c.stopCh)
-
-	if c.connected {
+	if wasConnected {
 		_ = c.transport.Send(WriteDisconnectPacket())
+	}
+	if stopCh != nil {
+		select {
+		case <-stopCh:
+		default:
+			close(stopCh)
+		}
 	}
 	return c.transport.Close()
 }

@@ -443,6 +443,9 @@ func ExtractDirectThread(data map[string]any) models.DirectThread {
 		Muted:      getBool(data, "muted"),
 		IsGroup:    getBool(data, "is_group"),
 	}
+	if dt.ID == "" {
+		dt.ID = dt.PK
+	}
 
 	if t, ok := data["last_activity_at"].(float64); ok {
 		dt.LastActivityAt.Time = time.Unix(int64(t)/1e6, 0)

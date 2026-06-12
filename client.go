@@ -109,7 +109,8 @@ func (c *Client) SetSessionID(ctx context.Context, sessionID string) error {
 	if len(sessionID) < 30 {
 		return igerr.New("SetSessionID", "invalid sessionid")
 	}
-	c.state.Jar = nil
+	ensureSessionJar(c)
+	c.state.SetCookie("sessionid", sessionID)
 
 	userID := ""
 	for i := 0; i < len(sessionID); i++ {
@@ -567,65 +568,6 @@ func (c *Client) StoryViewers(ctx context.Context, pk any) ([]models.Viewer, err
 	return viewers, nil
 }
 
-// DirectThreads returns direct message threads.
-func (c *Client) DirectThreads(ctx context.Context, amount int) ([]models.DirectThread, error) {
-	if amount <= 0 {
-		amount = 20
-	}
-	data := c.withDefaultData(nil)
-	data["limit"] = fmt.Sprintf("%d", amount)
-	result, err := c.privateRequest(ctx, "direct_v2/inbox/", data)
-	if err != nil {
-		return nil, err
-	}
-	var threads []models.DirectThread
-	if items, ok := result["inbox"].(map[string]any); ok {
-		if threadsRaw, ok := items["threads"].([]any); ok {
-			for _, t := range threadsRaw {
-				if tm, ok := t.(map[string]any); ok {
-					threads = append(threads, extractors.ExtractDirectThread(tm))
-				}
-			}
-		}
-	}
-	return threads, nil
-}
-
-// DirectMessages returns messages in a direct thread.
-func (c *Client) DirectMessages(ctx context.Context, threadID string, amount int) ([]models.DirectMessage, error) {
-	if amount <= 0 {
-		amount = 20
-	}
-	data := c.withDefaultData(nil)
-	data["limit"] = fmt.Sprintf("%d", amount)
-	result, err := c.privateRequest(ctx, "direct_v2/threads/"+threadID+"/", data)
-	if err != nil {
-		return nil, err
-	}
-	var messages []models.DirectMessage
-	if thread, ok := result["thread"].(map[string]any); ok {
-		if items, ok := thread["items"].([]any); ok {
-			for _, item := range items {
-				if im, ok := item.(map[string]any); ok {
-					messages = append(messages, extractors.ExtractDirectMessage(im))
-				}
-			}
-		}
-	}
-	return messages, nil
-}
-
-// DirectSend sends a text message to a thread.
-func (c *Client) DirectSend(ctx context.Context, threadID, text string) error {
-	data := c.withDefaultData(nil)
-	data["thread_ids"] = fmt.Sprintf("[%s]", threadID)
-	data["text"] = text
-	data["client_context"] = fmt.Sprintf("%d", time.Now().UnixNano())
-	data["_csrftoken"] = c.state.Token()
-	_, err := c.privateRequest(ctx, "direct_v2/threads/broadcast/text/", data)
-	return err
-}
-
 // LocationSearch searches for locations.
 func (c *Client) LocationSearch(ctx context.Context, query string) ([]models.Location, error) {
 	data := c.withDefaultData(nil)
@@ -886,37 +828,6 @@ func (c *Client) newRealtimeClient() *realtime.RealtimeClient {
 		Capabilities: "3brTv10=",
 		Locale:       c.state.Locale,
 	})
-}
-
-// RealtimeDirectSubscribe subscribes to real-time DM updates via IRIS.
-func (c *Client) RealtimeDirectSubscribe(ctx context.Context, amount int) error {
-	if c.realtime == nil || !c.realtime.IsConnected() {
-		return igerr.New("RealtimeDirectSubscribe", "not connected")
-	}
-
-	threads, err := c.DirectThreads(ctx, amount)
-	if err != nil {
-		return igerr.Wrap("RealtimeDirectSubscribe", "fetch threads", err)
-	}
-	_ = threads
-
-	lastResp := c.state.LastResponse
-	if lastResp == nil {
-		return igerr.New("RealtimeDirectSubscribe", "no last response to extract seq_id from")
-	}
-
-	var resp struct {
-		SeqID        int    `json:"seq_id"`
-		SnapshotAtMS int64  `json:"snapshot_at_ms"`
-	}
-	if err := json.Unmarshal(lastResp, &resp); err != nil {
-		return igerr.Wrap("RealtimeDirectSubscribe", "parse seq_id", err)
-	}
-	if resp.SeqID == 0 || resp.SnapshotAtMS == 0 {
-		return igerr.New("RealtimeDirectSubscribe", "seq_id or snapshot_at_ms missing from response")
-	}
-
-	return c.realtime.DirectSubscribe(amount, resp.SeqID, resp.SnapshotAtMS)
 }
 
 // RealtimeSendDirect sends a DM via the real-time MQTT connection.
