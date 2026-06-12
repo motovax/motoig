@@ -720,8 +720,8 @@ func (s *State) syncSessionHeadersFromCookies(cookies map[string]string) {
 		}
 	}
 	if s.IgURUR == "" {
-		if rur := strings.TrimSpace(cookies["rur"]); rur != "" {
-			s.IgURUR = strings.Trim(rur, "\"")
+		if rur := normalizeRUR(cookies["rur"]); rur != "" {
+			s.IgURUR = rur
 		}
 	}
 	if s.IgWWWClaim == "" {
@@ -738,6 +738,7 @@ func (s *State) syncAuthorizationFromCookies(cookies map[string]string) {
 	if uid := strings.TrimSpace(s.UserID); uid != "" {
 		s.AuthorizationData["ds_user_id"] = uid
 	}
+	s.AuthorizationData["should_use_header_over_cookies"] = true
 	sessionID := strings.TrimSpace(cookies["sessionid"])
 	if sessionID == "" {
 		sessionID = s.SessionID()

@@ -41,14 +41,31 @@ func NormalizeAuthorizationData(authData map[string]any) {
 	}
 }
 
+func normalizeCookieValue(name, value string) string {
+	value = strings.TrimSpace(value)
+	switch name {
+	case "sessionid":
+		return normalizeSessionID(value)
+	case "rur":
+		return normalizeRUR(value)
+	default:
+		return value
+	}
+}
+
+func normalizeRUR(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.Trim(value, "\"")
+	value = strings.ReplaceAll(value, "\\054", ",")
+	return value
+}
+
 // SetCookie sets a cookie on the Instagram domain.
 func (s *State) SetCookie(name, value string) {
 	if s.Jar == nil {
 		return
 	}
-	if name == "sessionid" {
-		value = normalizeSessionID(value)
-	}
+	value = normalizeCookieValue(name, value)
 	u, _ := url.Parse("https://i.instagram.com/")
 	s.Jar.SetCookies(u, []*http.Cookie{
 		{

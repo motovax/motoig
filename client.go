@@ -138,8 +138,9 @@ func (c *Client) SetSessionID(ctx context.Context, sessionID string) error {
 	c.state.UserID = userID
 	c.state.LoggedIn = true
 	c.state.AuthorizationData = map[string]any{
-		"ds_user_id": userID,
-		"sessionid":  sessionID,
+		"ds_user_id":                      userID,
+		"sessionid":                       sessionID,
+		"should_use_header_over_cookies": true,
 	}
 	c.state.Authorization = c.state.BuildAuthorization()
 
