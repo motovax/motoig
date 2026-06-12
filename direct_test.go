@@ -83,3 +83,21 @@ func TestLoadSettingsRestoresUserIDFromEncodedSessionCookie(t *testing.T) {
 		t.Fatalf("saved user_id = %v, want 1234567890", settings["user_id"])
 	}
 }
+
+func TestLoadSettingsSyncsMIDFromCookies(t *testing.T) {
+	c := New()
+	c.LoadSettings(map[string]any{
+		"cookies": map[string]any{
+			"sessionid":   "1234567890%3Atestsessionidvaluewithmorethan30chars",
+			"ds_user_id":  "1234567890",
+			"mid":         "test-mid-value",
+			"rur":         "\"CCO,123,999:abc\"",
+		},
+	})
+	if c.state.MID != "test-mid-value" {
+		t.Fatalf("mid = %q, want test-mid-value", c.state.MID)
+	}
+	if c.state.IgURUR != "CCO,123,999:abc" {
+		t.Fatalf("ig_u_rur = %q", c.state.IgURUR)
+	}
+}

@@ -690,6 +690,7 @@ func (s *State) EnsureLoggedInFromCookies() {
 	}
 	if strings.TrimSpace(s.UserID) != "" {
 		s.LoggedIn = true
+		s.syncSessionHeadersFromCookies(cookies)
 		s.syncAuthorizationFromCookies(cookies)
 		return
 	}
@@ -708,7 +709,26 @@ func (s *State) EnsureLoggedInFromCookies() {
 	if _, ok := s.AuthorizationData["sessionid"]; !ok {
 		s.AuthorizationData["sessionid"] = s.SessionID()
 	}
+	s.syncSessionHeadersFromCookies(cookies)
 	s.syncAuthorizationFromCookies(cookies)
+}
+
+func (s *State) syncSessionHeadersFromCookies(cookies map[string]string) {
+	if s.MID == "" {
+		if mid := strings.TrimSpace(cookies["mid"]); mid != "" {
+			s.MID = mid
+		}
+	}
+	if s.IgURUR == "" {
+		if rur := strings.TrimSpace(cookies["rur"]); rur != "" {
+			s.IgURUR = strings.Trim(rur, "\"")
+		}
+	}
+	if s.IgWWWClaim == "" {
+		if claim := strings.TrimSpace(cookies["ig_www_claim"]); claim != "" {
+			s.IgWWWClaim = claim
+		}
+	}
 }
 
 func (s *State) syncAuthorizationFromCookies(cookies map[string]string) {
