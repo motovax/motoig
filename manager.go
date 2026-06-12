@@ -122,6 +122,17 @@ func (m *Manager) GetClient(clientID string) (*Client, error) {
 	return c, nil
 }
 
+// RegisterClient attaches an in-memory client to the manager so SaveSession
+// can persist it. Replaces any existing registration for the same client id.
+func (m *Manager) RegisterClient(clientID string, c *Client) {
+	if c == nil {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.Clients[clientID] = c
+}
+
 // ImportSettings saves session settings to storage for clientID.
 func (m *Manager) ImportSettings(ctx context.Context, clientID string, settings map[string]any) error {
 	if m.storage == nil {
