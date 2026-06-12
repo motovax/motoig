@@ -718,6 +718,12 @@ func (c *Client) GetSettings() map[string]any {
 		"last_login":          s.LastLogin.Unix(),
 		"request_timeout":     int(s.RequestTimeout.Seconds()),
 	}
+	if uid := strings.TrimSpace(s.UserID); uid != "" {
+		settings["user_id"] = uid
+	}
+	if username := strings.TrimSpace(s.Username); username != "" {
+		settings["username"] = username
+	}
 	return settings
 }
 
@@ -767,6 +773,13 @@ func (c *Client) LoadSettings(settings map[string]any) {
 			}
 		}
 	}
+	if uid, ok := settings["user_id"].(string); ok {
+		c.state.UserID = strings.TrimSpace(uid)
+	}
+	if username, ok := settings["username"].(string); ok {
+		c.state.Username = strings.TrimSpace(username)
+	}
+	c.state.EnsureLoggedInFromCookies()
 }
 
 func mustJSON(v any) string {

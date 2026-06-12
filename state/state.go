@@ -679,5 +679,29 @@ func (s *State) LoadSnapshot(snap map[string]any) {
 	if username, ok := snap["username"].(string); ok {
 		s.Username = username
 	}
+	s.EnsureLoggedInFromCookies()
+}
+
+// EnsureLoggedInFromCookies marks the session logged in when cookies contain a sessionid.
+func (s *State) EnsureLoggedInFromCookies() {
+	if strings.TrimSpace(s.UserID) != "" {
+		s.LoggedIn = true
+		return
+	}
+	userID := UserIDFromSessionID(s.SessionID())
+	if userID == "" {
+		return
+	}
+	s.UserID = userID
 	s.LoggedIn = true
+	if s.AuthorizationData == nil {
+		s.AuthorizationData = map[string]any{}
+	}
+	if _, ok := s.AuthorizationData["ds_user_id"]; !ok {
+		s.AuthorizationData["ds_user_id"] = userID
+	}
+	if _, ok := s.AuthorizationData["sessionid"]; !ok {
+		s.AuthorizationData["sessionid"] = s.SessionID()
+	}
+	s.Authorization = s.BuildAuthorization()
 }

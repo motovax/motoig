@@ -6,6 +6,20 @@ import (
 	"strings"
 )
 
+// UserIDFromSessionID extracts the numeric user id prefix from a sessionid cookie.
+func UserIDFromSessionID(sessionID string) string {
+	sessionID = normalizeSessionID(sessionID)
+	var userID string
+	for i := 0; i < len(sessionID); i++ {
+		if sessionID[i] >= '0' && sessionID[i] <= '9' {
+			userID += string(sessionID[i])
+		} else {
+			break
+		}
+	}
+	return userID
+}
+
 func normalizeSessionID(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {

@@ -67,3 +67,19 @@ func TestSetSessionIDPreservesCookieJar(t *testing.T) {
 		t.Fatalf("user id = %q, want 1234567890", c.state.UserID)
 	}
 }
+
+func TestLoadSettingsRestoresUserIDFromEncodedSessionCookie(t *testing.T) {
+	c := New()
+	c.LoadSettings(map[string]any{
+		"cookies": map[string]any{
+			"sessionid": "1234567890%3Atestsessionidvaluewithmorethan30chars",
+		},
+	})
+	if c.UserID() != "1234567890" {
+		t.Fatalf("user id = %q, want 1234567890", c.UserID())
+	}
+	settings := c.GetSettings()
+	if settings["user_id"] != "1234567890" {
+		t.Fatalf("saved user_id = %v, want 1234567890", settings["user_id"])
+	}
+}
