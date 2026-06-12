@@ -834,19 +834,21 @@ func (c *Client) RealtimeConnect() error {
 		return igerr.New("RealtimeConnect", "not logged in")
 	}
 
-	deviceID := c.state.UUIDs["phone_id"]
-	if len(deviceID) > 20 {
-		deviceID = deviceID[:20]
+	phoneID := c.state.UUIDs["phone_id"]
+	clientIdentifier := phoneID
+	if len(clientIdentifier) > 20 {
+		clientIdentifier = clientIdentifier[:20]
 	}
 
 	c.realtime = realtime.NewRealtimeClient(realtime.RealtimeConfig{
-		SessionID:    c.state.SessionID(),
-		UserID:       userID,
-		DeviceID:     deviceID,
-		UserAgent:    c.state.UserAgent,
-		AppVersion:   fmt.Sprintf("%v", c.state.DeviceSettings["app_version"]),
-		Capabilities: "3brTv10=",
-		Locale:       c.state.Locale,
+		SessionID:        c.state.SessionID(),
+		UserID:           userID,
+		ClientIdentifier: clientIdentifier,
+		DeviceID:         phoneID,
+		UserAgent:        c.state.UserAgent,
+		AppVersion:       fmt.Sprintf("%v", c.state.DeviceSettings["app_version"]),
+		Capabilities:     "3brTv10=",
+		Locale:           c.state.Locale,
 	})
 
 	return c.realtime.Connect()
@@ -873,18 +875,20 @@ func (c *Client) RealtimeOn(event string, handler func(realtime.RealtimeEvent)) 
 
 func (c *Client) newRealtimeClient() *realtime.RealtimeClient {
 	userID := c.state.UserIDInt()
-	deviceID := c.state.UUIDs["phone_id"]
-	if len(deviceID) > 20 {
-		deviceID = deviceID[:20]
+	phoneID := c.state.UUIDs["phone_id"]
+	clientIdentifier := phoneID
+	if len(clientIdentifier) > 20 {
+		clientIdentifier = clientIdentifier[:20]
 	}
 	return realtime.NewRealtimeClient(realtime.RealtimeConfig{
-		SessionID:    c.state.SessionID(),
-		UserID:       userID,
-		DeviceID:     deviceID,
-		UserAgent:    c.state.UserAgent,
-		AppVersion:   fmt.Sprintf("%v", c.state.DeviceSettings["app_version"]),
-		Capabilities: "3brTv10=",
-		Locale:       c.state.Locale,
+		SessionID:        c.state.SessionID(),
+		UserID:           userID,
+		ClientIdentifier: clientIdentifier,
+		DeviceID:         phoneID,
+		UserAgent:        c.state.UserAgent,
+		AppVersion:       fmt.Sprintf("%v", c.state.DeviceSettings["app_version"]),
+		Capabilities:     "3brTv10=",
+		Locale:           c.state.Locale,
 	})
 }
 

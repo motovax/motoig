@@ -26,43 +26,53 @@ type RealtimeEvent struct {
 type RealtimeHandler func(event RealtimeEvent)
 
 type RealtimeClient struct {
-	transport  *MQTToTTransport
-	sessionID  string
-	userID     int64
-	deviceID   string
-	userAgent  string
-	appVersion string
-	capabilities string
-	locale     string
-	connected  bool
-	packetID   uint16
-	mu         sync.RWMutex
-	handlers   map[string][]RealtimeHandler
-	stopCh     chan struct{}
+	transport        *MQTToTTransport
+	sessionID        string
+	userID           int64
+	clientIdentifier string
+	deviceID         string
+	userAgent        string
+	appVersion       string
+	capabilities     string
+	locale           string
+	connected        bool
+	packetID         uint16
+	mu               sync.RWMutex
+	handlers         map[string][]RealtimeHandler
+	stopCh           chan struct{}
 }
 
 type RealtimeConfig struct {
-	SessionID    string
-	UserID       int64
-	DeviceID     string
-	UserAgent    string
-	AppVersion   string
-	Capabilities string
-	Locale       string
+	SessionID          string
+	UserID             int64
+	ClientIdentifier   string
+	DeviceID           string
+	UserAgent          string
+	AppVersion         string
+	Capabilities       string
+	Locale             string
 }
 
 func NewRealtimeClient(cfg RealtimeConfig) *RealtimeClient {
+	clientIdentifier := cfg.ClientIdentifier
+	if clientIdentifier == "" {
+		clientIdentifier = cfg.DeviceID
+		if len(clientIdentifier) > 20 {
+			clientIdentifier = clientIdentifier[:20]
+		}
+	}
 	return &RealtimeClient{
-		transport:    NewMQTToTTransport(RealtimeHost),
-		sessionID:    cfg.SessionID,
-		userID:       cfg.UserID,
-		deviceID:     cfg.DeviceID,
-		userAgent:    cfg.UserAgent,
-		appVersion:   cfg.AppVersion,
-		capabilities: cfg.Capabilities,
-		locale:       cfg.Locale,
-		handlers:     make(map[string][]RealtimeHandler),
-		stopCh:       make(chan struct{}),
+		transport:        NewMQTToTTransport(RealtimeHost),
+		sessionID:        cfg.SessionID,
+		userID:           cfg.UserID,
+		clientIdentifier: clientIdentifier,
+		deviceID:         cfg.DeviceID,
+		userAgent:        cfg.UserAgent,
+		appVersion:       cfg.AppVersion,
+		capabilities:     cfg.Capabilities,
+		locale:           cfg.Locale,
+		handlers:         make(map[string][]RealtimeHandler),
+		stopCh:           make(chan struct{}),
 	}
 }
 
@@ -82,7 +92,7 @@ func (c *RealtimeClient) Connect() error {
 	}
 
 	connPayload := c.buildConnection()
-	connectPacket := WriteConnectPacket(connPayload, 60)
+	connectPacket := WriteConnectPacket(connPayload, 20)
 
 	if err := c.transport.Send(connectPacket); err != nil {
 		return fmt.Errorf("send connect: %w", err)
@@ -444,7 +454,7 @@ func (c *RealtimeClient) buildConnection() []byte {
 	}
 
 	info := ConnectionInfo{
-		ClientIdentifier: c.deviceID,
+		ClientIdentifier: c.clientIdentifier,
 		ClientInfo:       ci,
 		Password:         fmt.Sprintf("sessionid=%s", c.sessionID),
 		AppSpecificInfo:  asi,
