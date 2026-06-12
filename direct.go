@@ -18,9 +18,13 @@ func (c *Client) privateRequestGET(ctx context.Context, endpoint string, params 
 	return c.state.PrivateRequest(ctx, endpoint, nil, params)
 }
 
-func directInboxParams(amount int) url.Values {
+func (c *Client) directInboxParams(amount int) url.Values {
 	if amount <= 0 {
 		amount = 20
+	}
+	pushDisabled := "true"
+	if c != nil && c.state != nil && !c.state.PushDisabled {
+		pushDisabled = "false"
 	}
 	params := url.Values{}
 	params.Set("visual_message_return_type", "unseen")
@@ -31,7 +35,7 @@ func directInboxParams(amount int) url.Values {
 	params.Set("fetch_reason", "initial_snapshot")
 	params.Set("include_old_mrs", "false")
 	params.Set("no_pending_badge", "true")
-	params.Set("push_disabled", "true")
+	params.Set("push_disabled", pushDisabled)
 	params.Set("eb_device_id", "0")
 	params.Set("igd_request_log_tracking_id", internal.GenerateUUID())
 	return params
@@ -132,8 +136,11 @@ func ensureSessionJar(c *Client) {
 }
 
 // DirectThreads returns direct message threads.
+//
+// Port of instagrapi.DirectMixin.direct_threads_chunk.
+// Reference: https://github.com/subzeroid/instagrapi/blob/master/instagrapi/mixins/direct.py
 func (c *Client) DirectThreads(ctx context.Context, amount int) ([]models.DirectThread, error) {
-	result, err := c.privateRequestGET(ctx, "direct_v2/inbox/", directInboxParams(amount))
+	result, err := c.privateRequestGET(ctx, "direct_v2/inbox/", c.directInboxParams(amount))
 	if err != nil {
 		return nil, err
 	}
@@ -151,6 +158,9 @@ func (c *Client) DirectThreads(ctx context.Context, amount int) ([]models.Direct
 }
 
 // DirectMessages returns messages in a direct thread.
+//
+// Port of instagrapi.DirectMixin.direct_messages.
+// Reference: https://github.com/subzeroid/instagrapi/blob/master/instagrapi/mixins/direct.py
 func (c *Client) DirectMessages(ctx context.Context, threadID string, amount int) ([]models.DirectMessage, error) {
 	result, err := c.privateRequestGET(ctx, "direct_v2/threads/"+threadID+"/", directThreadParams(amount))
 	if err != nil {
@@ -170,6 +180,9 @@ func (c *Client) DirectMessages(ctx context.Context, threadID string, amount int
 }
 
 // DirectSend sends a text message to a thread.
+//
+// Port of instagrapi.DirectMixin.direct_send (text broadcast).
+// Reference: https://github.com/subzeroid/instagrapi/blob/master/instagrapi/mixins/direct.py
 func (c *Client) DirectSend(ctx context.Context, threadID, text string) error {
 	token := internal.GenerateMutationToken()
 	data := c.withDefaultData(nil)
@@ -192,6 +205,9 @@ func (c *Client) DirectSend(ctx context.Context, threadID, text string) error {
 }
 
 // RealtimeDirectSubscribe subscribes to real-time DM updates via IRIS.
+//
+// Port of instagrapi.RealtimeClient.direct_subscribe.
+// Reference: https://github.com/subzeroid/instagrapi/blob/master/instagrapi/realtime/client.py
 func (c *Client) RealtimeDirectSubscribe(ctx context.Context, amount int) error {
 	if c.realtime == nil || !c.realtime.IsConnected() {
 		return igerr.New("RealtimeDirectSubscribe", "not connected")

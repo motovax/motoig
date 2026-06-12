@@ -1,3 +1,6 @@
+// Package realtime implements Instagram's MQTToT protocol for real-time DMs.
+//
+// Port of instagrapi.realtime — https://github.com/subzeroid/instagrapi/tree/master/instagrapi/realtime
 package realtime
 
 import (
@@ -278,18 +281,26 @@ func (c *RealtimeClient) dispatchMessageSync(body []byte) {
 
 			threadID := c.threadIDFromPath(path)
 
-			wrapper := map[string]any{
+			message := map[string]any{
 				"path":      path,
 				"op":        p["op"],
 				"thread_id": threadID,
 			}
 			if vm, ok := value.(map[string]any); ok {
 				for k, v := range vm {
-					wrapper[k] = v
+					message[k] = v
 				}
 			} else {
-				wrapper["value"] = value
+				message["value"] = value
 			}
+
+			wrapper := make(map[string]any, len(m)+1)
+			for k, v := range m {
+				if k != "data" {
+					wrapper[k] = v
+				}
+			}
+			wrapper["message"] = message
 
 			if strings.HasPrefix(path, "/direct_v2/threads/") {
 				c.emit("message", wrapper)

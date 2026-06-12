@@ -57,40 +57,11 @@ func (c *Client) LoginWithCode(ctx context.Context, username, password, verifica
 }
 
 // LoginBySessionID logs in using a session ID string.
+//
+// Alias for SetSessionID, matching instagrapi session restore behavior.
+// Reference: https://github.com/subzeroid/instagrapi/blob/master/instagrapi/mixins/auth.py
 func (c *Client) LoginBySessionID(ctx context.Context, sessionID string) error {
-	if len(sessionID) < 30 {
-		return igerr.New("LoginBySessionID", "invalid sessionid")
-	}
-
-	userID := ""
-	for i := 0; i < len(sessionID); i++ {
-		if sessionID[i] >= '0' && sessionID[i] <= '9' {
-			userID += string(sessionID[i])
-		} else {
-			break
-		}
-	}
-	if userID == "" {
-		return igerr.New("LoginBySessionID", "invalid sessionid: no user id")
-	}
-
-	c.state.SetCookie("sessionid", sessionID)
-	c.state.UserID = userID
-	c.state.LoggedIn = true
-	c.state.AuthorizationData = map[string]any{
-		"ds_user_id": userID,
-		"sessionid":  sessionID,
-	}
-	c.state.Authorization = c.state.BuildAuthorization()
-
-	profile, err := c.UserInfoV1(ctx, userID)
-	if err != nil {
-		c.log.Warn("failed to fetch user info via v1, trying stream", "error", err)
-	} else {
-		c.state.Username = profile.Username
-	}
-
-	return nil
+	return c.SetSessionID(ctx, sessionID)
 }
 
 func (c *Client) twoFactorLogin(ctx context.Context, code string) error {

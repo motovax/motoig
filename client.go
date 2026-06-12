@@ -1,4 +1,7 @@
 // Package motoig provides an unofficial Instagram client library.
+//
+// motoig is a Go port of instagrapi (https://github.com/subzeroid/instagrapi).
+// See github.com/motovax/motoig/references/instagrapi for symbol mappings.
 package motoig
 
 import (
@@ -105,6 +108,9 @@ func (c *Client) UserID() string { return c.state.UserID }
 func (c *Client) Username() string { return c.state.Username }
 
 // SetSessionID logs in using a session ID from browser cookies.
+//
+// Port of instagrapi session bootstrap via sessionid cookie.
+// Reference: https://github.com/subzeroid/instagrapi/blob/master/instagrapi/mixins/auth.py
 func (c *Client) SetSessionID(ctx context.Context, sessionID string) error {
 	if len(sessionID) < 30 {
 		return igerr.New("SetSessionID", "invalid sessionid")
@@ -770,6 +776,9 @@ func min(a, b int) int {
 }
 
 // RealtimeConnect connects to Instagram's MQTToT server for real-time DMs.
+//
+// Port of instagrapi.RealtimeMixin.realtime_connect.
+// Reference: https://github.com/subzeroid/instagrapi/blob/master/instagrapi/mixins/realtime.py
 func (c *Client) RealtimeConnect() error {
 	userID := c.state.UserIDInt()
 	if userID == 0 {
