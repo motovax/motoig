@@ -515,7 +515,116 @@ func ExtractDirectMessage(data map[string]any) models.DirectMessage {
 		dm.MediaShare = &m
 	}
 
+	if link, ok := data["link"].(map[string]any); ok {
+		dm.Link = extractMessageLink(link)
+	}
+
+	if voiceMedia, ok := data["voice_media"].(map[string]any); ok {
+		if media, ok := voiceMedia["media"].(map[string]any); ok {
+			dm.Media = extractDirectMedia(media)
+		}
+	}
+
+	if clip, ok := data["clip"].(map[string]any); ok {
+		if nested, ok := clip["clip"].(map[string]any); ok {
+			clip = nested
+		}
+		m := ExtractMediaV1(clip)
+		dm.Clip = &m
+	}
+
+	if xma := firstMediaXma(data, "xma_clip"); xma != nil {
+		dm.XMAShare = xma
+	}
+	if dm.XMAShare == nil {
+		if xma := firstMediaXma(data, "xma_media_share"); xma != nil {
+			dm.XMAShare = xma
+		}
+	}
+	if generic, ok := data["generic_xma"].([]any); ok {
+		for _, item := range generic {
+			if m, ok := item.(map[string]any); ok {
+				if xma := extractMediaXma(m); xma != nil {
+					dm.GenericXMA = append(dm.GenericXMA, *xma)
+					if dm.XMAShare == nil {
+						xmaCopy := *xma
+						dm.XMAShare = &xmaCopy
+					}
+				}
+			}
+		}
+	}
+
+	if rs, ok := data["reel_share"].(map[string]any); ok {
+		dm.ReelShare = rs
+	}
+	if ss, ok := data["story_share"].(map[string]any); ok {
+		dm.StoryShare = ss
+	}
+	if ph, ok := data["placeholder"].(map[string]any); ok {
+		dm.Placeholder = ph
+	}
+
 	return dm
+}
+
+func extractMessageLink(data map[string]any) *models.MessageLink {
+	link := &models.MessageLink{
+		Text:          getString(data, "text"),
+		ClientContext: getString(data, "client_context"),
+		MutationToken: getString(data, "mutation_token"),
+	}
+	if ctx, ok := data["link_context"].(map[string]any); ok {
+		link.LinkContext = models.LinkContext{
+			LinkURL:      getString(ctx, "link_url"),
+			LinkTitle:    getString(ctx, "link_title"),
+			LinkSummary:  getString(ctx, "link_summary"),
+			LinkImageURL: getString(ctx, "link_image_url"),
+		}
+	}
+	return link
+}
+
+func firstMediaXma(data map[string]any, key string) *models.MediaXma {
+	raw, ok := data[key]
+	if !ok || raw == nil {
+		return nil
+	}
+	switch items := raw.(type) {
+	case []any:
+		if len(items) == 0 {
+			return nil
+		}
+		if m, ok := items[0].(map[string]any); ok {
+			return extractMediaXma(m)
+		}
+	case map[string]any:
+		return extractMediaXma(items)
+	}
+	return nil
+}
+
+func extractMediaXma(data map[string]any) *models.MediaXma {
+	targetURL := getString(data, "target_url")
+	if targetURL == "" {
+		return nil
+	}
+	xma := &models.MediaXma{
+		VideoURL:           targetURL,
+		Title:              getString(data, "title_text", "title"),
+		PreviewURL:         getString(data, "preview_url"),
+		PreviewURLMimeType: getString(data, "preview_url_mime_type"),
+		HeaderIconURL:      getString(data, "header_icon_url"),
+		HeaderTitleText:    getString(data, "header_title_text"),
+		PreviewMediaFbid:   getString(data, "preview_media_fbid"),
+	}
+	if w := getInt(data, "header_icon_width"); w > 0 {
+		xma.HeaderIconWidth = &w
+	}
+	if h := getInt(data, "header_icon_height"); h > 0 {
+		xma.HeaderIconHeight = &h
+	}
+	return xma
 }
 
 func extractDirectMedia(data map[string]any) *models.DirectMedia {
